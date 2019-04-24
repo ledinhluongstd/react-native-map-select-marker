@@ -1,5 +1,5 @@
 import React, { Component } from "react";
-import { View, TextInput, Text } from "react-native";
+import { View ,Text, TextInput} from "react-native";
 import MapView, { Marker, Callout } from "react-native-maps";
 import { Location, Permissions, Constants } from 'expo';
 import { Platform, StyleSheet, TouchableOpacity } from "react-native";
@@ -8,23 +8,14 @@ import { isEmpty, showToast } from "../variable/common";
 
 const GEOLOCATION_OPTIONS = {
   enableHighAccuracy: true,
-  timeout: 20000,
+  timeout: 5000,
   maximumAge: 1000
 };
-const title = {
-  SAVE: 'Lưu',
-  REJECT: 'Hủy',
-  YOUR_LOCATION: 'Vị trí của bạn'
-}
-const CONSTANTS = {
-  GOOGLE_API_KEY: "AIzaSyChN7EsiBMaf4xme4-LXzPasweMJEufAXs",
 
-}
 class MapSelectMarker extends Component {
   constructor(props) {
     super(props);
     this.state = ({
-      titleScreen: title.YOUR_LOCATION,
       latLng: {
         latitude: null,
         longitude: null
@@ -73,9 +64,29 @@ class MapSelectMarker extends Component {
       if (status !== "granted") {
         this.permissionsLocation = false
         this.waitGetAddress = false
+        this.mapRegion = {
+          latitude: 19.807685,
+          longitude: 105.776748,
+          latitudeDelta: 15,
+          longitudeDelta: 15 * ASPECT_RATIO
+        }
+        this.forceUpdate()
+        showToast("please_enable_location_information_to_get_the_best_support")
       } else {
+        let { locationServicesEnabled } = await Location.getProviderStatusAsync()
         this.permissionsLocation = true
-        this.waitGetAddress = true
+        this.waitGetAddress = false
+        if (!locationServicesEnabled) {
+          this.mapRegion = {
+            latitude: 19.807685,
+            longitude: 105.776748,
+            latitudeDelta: 15,
+            longitudeDelta: 15 * ASPECT_RATIO
+          }
+          this.forceUpdate()
+          showToast("please_enable_location_information_to_get_the_best_support")
+          return
+        }
         this.getLocationAsync();
       }
     }
@@ -86,8 +97,8 @@ class MapSelectMarker extends Component {
   }
 
   getAddress(lat, lng) {
-    // console.log(`${'https://maps.googleapis.com/maps/api/geocode/json?latlng='}${lat}${','}${lng}${'&sensor=true'}${'&key='}${CONSTANTS.GOOGLE_API_KEY}`)
-    return fetch(`${'https://maps.googleapis.com/maps/api/geocode/json?latlng='}${lat}${','}${lng}${'&sensor=true&language=vi'}${'&key='}${CONSTANTS.GOOGLE_API_KEY}`, {
+    // `${'https://maps.googleapis.com/maps/api/geocode/json?latlng='}${lat}${','}${lng}${'&sensor=true'}${'&key='}${CONSTANTS.GOOGLE_API_KEY}`
+    return fetch(`${'https://maps.googleapis.com/maps/api/geocode/json?latlng='}${lat}${','}${lng}${'&sensor=true&language='}${this.props.language}${'&key='}${'AIzaSyChN7EsiBMaf4xme4-LXzPasweMJEufAXs'}`, {
       method: "GET",
     })
       .then(response => {
@@ -123,23 +134,27 @@ class MapSelectMarker extends Component {
   }
 
   async getLocationAsync() {
-    Location.watchPositionAsync(GEOLOCATION_OPTIONS, this.handleMapRegionChange);
-    let location = await Location.getCurrentPositionAsync({});
-    let address = await this.getAddress(location.coords.latitude, location.coords.longitude)
-    this.waitGetAddress = false
-    this.location = location
-    this.mapRegion = {
-      latitude: location.coords.latitude,
-      longitude: location.coords.longitude,
-      latitudeDelta: 0.1,
-      longitudeDelta: 0.1 * ASPECT_RATIO
+    try {
+      Location.watchPositionAsync(GEOLOCATION_OPTIONS, this.handleMapRegionChange);
+      let location = await Location.getCurrentPositionAsync({});
+      let address = await this.getAddress(location.coords.latitude, location.coords.longitude)
+      this.waitGetAddress = false
+      this.location = location
+      this.mapRegion = {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+        latitudeDelta: 0.1,
+        longitudeDelta: 0.1 * ASPECT_RATIO
+      }
+      if (this.props.getData) this.props.getData(address, location.coords.latitude, location.coords.longitude)
+      this.setState({
+        latLng: { latitude: location.coords.latitude, longitude: location.coords.longitude },
+        address: address
+      });
+    } catch (e) {
+      showToast(I18n.t("please_enable_location_information_to_get_the_best_support"))
     }
-    if (this.props.getData) this.props.getData(address, location.coords.latitude, location.coords.longitude)
-    this.setState({
-      latLng: { latitude: location.coords.latitude, longitude: location.coords.longitude },
-      address: address
-    });
-  };
+  }
 
   handleMapRegionChange(location) {
     if (location.coords) {
@@ -162,7 +177,7 @@ class MapSelectMarker extends Component {
     let address = await this.getAddress(latLng.latitude, latLng.longitude)
     this.waitGetAddress = false
     if (this.props.getData) this.props.getData(address, latLng.latitude, latLng.longitude)
-    this.setState({ latLng: latLng, address: address })
+    this.setState({ latLng: latLng, address: address, listSuggestions: [] })
   }
   focusText() {
     this.state.editable = true
@@ -172,11 +187,12 @@ class MapSelectMarker extends Component {
     /////https://maps.googleapis.com/maps/api/place/autocomplete/json?input=Thanh%20h%C3%B3a&key=AIzaSyChN7EsiBMaf4xme4-LXzPasweMJEufAXs
     clearTimeout(this.state.searchTimeout);
     this.state.address.address = value
+    if (this.props.getData) this.props.getData({ address: value }, null, null)
     //this.state[id] = value
     this.forceUpdate()
     this.state.searchTimeout = setTimeout(() => {
       // insertParam(CONSTANTS.KEY_SEARCH, this.filterSymbol(value), this.props.history)
-      fetch(`${'https://maps.googleapis.com/maps/api/place/autocomplete/json?input='}${value}${'&sensor=true&language=vi'}${'&key='}${CONSTANTS.GOOGLE_API_KEY}`, {
+      fetch(`${'https://maps.googleapis.com/maps/api/place/autocomplete/json?input='}${value}${'&sensor=true&language='}${this.props.language}${'&key='}${'AIzaSyChN7EsiBMaf4xme4-LXzPasweMJEufAXs'}`, {
         method: "GET",
       })
         .then(response => {
@@ -197,19 +213,17 @@ class MapSelectMarker extends Component {
   }
   suggestionsClick(item) {
     //https://maps.googleapis.com/maps/api/place/details/json?placeid=ChIJdyJ-I_73NjEROiH8ezYyOKE&key=AIzaSyChN7EsiBMaf4xme4-LXzPasweMJEufAXs
-    // console.log(1)
     this.state.listSuggestions = []
     this.state.address.address = item.description
     this.forceUpdate()
-    // console.log(`${'https://maps.googleapis.com/maps/api/place/details/json?placeid='}${item.place_id}${'&key='}${CONSTANTS.GOOGLE_API_KEY}`)
-    fetch(`${'https://maps.googleapis.com/maps/api/place/details/json?placeid='}${item.place_id}${'&sensor=true&language=vi'}${'&key='}${CONSTANTS.GOOGLE_API_KEY}`, {
+    //'https://maps.googleapis.com/maps/api/place/details/json?placeid='}${item.place_id}${'&key='}${CONSTANTS.GOOGLE_API_KEY
+    fetch(`${'https://maps.googleapis.com/maps/api/place/details/json?placeid='}${item.place_id}${'&sensor=true&language='}${this.props.language}${'&key='}${'AIzaSyChN7EsiBMaf4xme4-LXzPasweMJEufAXs'}`, {
       method: "GET",
     })
       .then(response => {
         return response.json()
       })
       .then(res => {
-        // console.log('1')
         let result = res.result
         let address_components = result.address_components
         this.state.address.ward = this.getRegionAddress(address_components, 'administrative_area_level_3')
@@ -227,14 +241,16 @@ class MapSelectMarker extends Component {
         if (this.props.getData) this.props.getData(this.state.address, result.geometry.location.lat, result.geometry.location.lng)
         this.forceUpdate()
       }).catch(err => {
-        // console.log(err)
         this.state.listSuggestions = []
       })
   }
   render() {
+    let { width, height, pinColor } = this.props
     return (
       <View style={styles.container}>
         <TextInput value={this.state.address.address || ""}
+          rkType="clear"
+          style={{ marginLeft: -15, marginVertical: 0 }}
           onChangeText={this.onChangeText.bind(this)}
           multiline={true}
           numberOfLines={2} />
@@ -244,7 +260,7 @@ class MapSelectMarker extends Component {
         <MapView
           region={this.mapRegion}
           onRegionChange={(e) => this.handleMapRegionChange(e)}
-          style={{ width: DEVICE_WIDTH -10, height: DEVICE_HEIGHT - 200 }}
+          style={{ width: width, height: height }}
           showsUserLocation={true}
           followsUserLocation={true}
           showsMyLocationButton={true}
@@ -257,8 +273,8 @@ class MapSelectMarker extends Component {
                 latitude: this.state.latLng.latitude,
                 longitude: this.state.latLng.longitude,
               }}
-              //image={CONSTANTS.PIN_RED}
-              pinColor={'red'}>
+              // image={CONSTANTS.PIN_RED}
+              pinColor={pinColor}>
               <Callout
                 tooltip={true}>
                 {!isEmpty(this.state.address) &&
@@ -275,9 +291,6 @@ class MapSelectMarker extends Component {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 5
-  },
   calloutDescription: {
     textAlign: "center"
   },
@@ -292,8 +305,13 @@ const styles = StyleSheet.create({
     padding: 5,
     backgroundColor: 'white',
     borderBottomWidth: 0.5,
-    borderBottomColor: '#00003c'
+    borderBottomColor: "#00003c"
   }
 })
-
+MapSelectMarker.defaultProps = {
+  width: DEVICE_WIDTH,
+  height: DEVICE_HEIGHT,
+  pinColor: 'red',
+  language: 'vi'
+};
 export default MapSelectMarker;
