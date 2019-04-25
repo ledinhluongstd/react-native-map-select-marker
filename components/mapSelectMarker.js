@@ -263,7 +263,7 @@ class MapSelectMarker extends Component {
       <View style={styles.container}>
         <TextInput value={this.state.address.address || ""}
           rkType="clear"
-          style={{ marginLeft: -15, marginVertical: 0 }}
+          //style={{ marginLeft: -15, marginVertical: 0 }}
           onChangeText={this.onChangeText.bind(this)}
           multiline={true}
           numberOfLines={2} />
@@ -311,7 +311,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: 4,
     height: 4,
-    backgroundColor: 'transparent',
+    backgroundColor: 'red',
   },
   calloutDescription: {
     textAlign: "center"
@@ -332,7 +332,7 @@ const styles = StyleSheet.create({
 })
 MapSelectMarker.defaultProps = {
   width: DEVICE_WIDTH,
-  height: DEVICE_HEIGHT,
+  height: DEVICE_HEIGHT-100,
   pinColor: 'red',
   language: 'vi'
 };
