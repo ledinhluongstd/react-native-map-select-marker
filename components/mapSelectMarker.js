@@ -1,5 +1,5 @@
 import React, { Component } from "react";
-import { View ,Text, TextInput} from "react-native";
+import { View, Text, TextInput } from "react-native";
 import MapView, { Marker, Callout } from "react-native-maps";
 import { Location, Permissions, Constants } from 'expo';
 import { Platform, StyleSheet, TouchableOpacity } from "react-native";
@@ -169,7 +169,19 @@ class MapSelectMarker extends Component {
       this.mapRegion = location
     }
   };
-
+  handleMapRegionChangeComplete(location) {
+    let data = {
+      coordinate: {
+        latitude: location.latitude,
+        longitude: location.longitude
+      }
+    }
+    if (!location.latitude || !location.longitude) return
+    clearTimeout(this.state.searchTimeout);
+    this.state.searchTimeout = setTimeout(() => {
+      this.handleMapViewOnPress(data)
+    }, 1000);
+  }
   async  handleMapViewOnPress(nativeEvent) {
     if (this.waitGetAddress) return
     this.waitGetAddress = true
@@ -244,6 +256,7 @@ class MapSelectMarker extends Component {
         this.state.listSuggestions = []
       })
   }
+
   render() {
     let { width, height, pinColor } = this.props
     return (
@@ -260,6 +273,7 @@ class MapSelectMarker extends Component {
         <MapView
           region={this.mapRegion}
           onRegionChange={(e) => this.handleMapRegionChange(e)}
+          onRegionChangeComplete={(e) => this.handleMapRegionChangeComplete(e)}
           style={{ width: width, height: height }}
           showsUserLocation={true}
           followsUserLocation={true}
@@ -285,12 +299,20 @@ class MapSelectMarker extends Component {
               </Callout>
             </Marker>}
         </MapView>
+        <View style={[styles.contemplate, { top: this.props.height / 2 + 45, left: this.props.width / 2 - 2 }]}>
+        </View>
       </View>
     );
   }
 }
 
 const styles = StyleSheet.create({
+  contemplate: {
+    position: 'absolute',
+    width: 4,
+    height: 4,
+    backgroundColor: 'transparent',
+  },
   calloutDescription: {
     textAlign: "center"
   },
